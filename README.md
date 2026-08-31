@@ -11,6 +11,7 @@ https://github.com/Aranhadaniela/oo-console
 | Matricula | Participante |
 | --- | --- |
 | 2410902 | Daniela Aranha Goes |
+| 2422791 | Arthur Adcleybson Venceslau da Silva |
 
 ## Sobre o projeto
 
