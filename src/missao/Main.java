@@ -1,5 +1,6 @@
 package missao;
-
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -30,10 +31,6 @@ public class Main {
     public static void main(String[] args) {
         Random random = new Random();
         // Gerador aleatório usado para posicionar passageiros e asteroides
-        int minX = -5;
-        int maxX = 5;
-        int minY = -5;
-        int maxY = 5;
 
         // Caminho para o arquivo que persiste o ranking de pontuações
         Path rankingPath = Paths.get("ranking.json");
@@ -47,6 +44,13 @@ public class Main {
         if (pilotoNome.isEmpty()) {
             pilotoNome = "Piloto Anônimo";
         }
+
+     
+        int dimensaoMapa = lerDimensaoMapa(scanner);
+        int maxX = dimensaoMapa / 2;
+        int minX = -maxX;
+        int maxY = dimensaoMapa / 2;
+        int minY = -maxY;
 
         // Cabeçalho e instruções iniciais do jogo
         System.out.println("================================================================");
@@ -93,18 +97,26 @@ public class Main {
             Missao missao = criarNovaMissao(random, minX, maxX, minY, maxY);
             Nave nave = missao.getNave();
             int score = 20;
+            char ultimoMovimento = '\0';
             boolean running = true;
 
             while (running) {
                 // Desenha o estado atual do mapa no console
-                desenharMapa(missao, -5, 5, -5, 5, score, pilotoNome);
-                System.out.printf("Nave em (%d,%d) | Pontos: %d | Passageiros a bordo: %d | Passageiros restantes: %d\n",
-                        nave.getX(), nave.getY(), score, nave.getPassageiros().size(), missao.todosEmbarcados() ? 0 : missao.getPassageiros().size());
+                desenharMapa(missao, minX, maxX, minY, maxY, score, pilotoNome);
+                System.out.printf("Nave em (%d,%d) | Pontos: %d | Vidas: %d | Passageiros a bordo: %d | Passageiros restantes: %d\n",
+                        nave.getX(), nave.getY(), score, nave.getVidas(), nave.getPassageiros().size(), missao.todosEmbarcados() ? 0 : missao.getPassageiros().size());
 
                 if (missao.verificaColisao()) {
-                    // Se a nave estiver na mesma posição de um asteroide, fim da missão
-                    System.out.println("Colisão com asteroide! Missão abortada.");
-                    break;
+                    nave.perderVida();
+                    System.out.printf("Colisão com asteroide! Vidas restantes: %d%n", nave.getVidas());
+                    if (!nave.estaViva()) {
+                        System.out.println("Sem vidas restantes. Missão abortada.");
+                        break;
+                    }
+
+                    desfazerUltimoMovimento(nave, ultimoMovimento);
+                    System.out.printf("A nave foi reposicionada para (%d,%d).%n", nave.getX(), nave.getY());
+                    continue;
                 }
 
                 System.out.print("Para onde ir? ");
@@ -113,10 +125,10 @@ public class Main {
                 if (line.isEmpty()) continue;
                 char cmd = line.charAt(0);
                 switch (cmd) {
-                    case 'w': nave.moveUp(); score--; break;
-                    case 's': nave.moveDown(); score--; break;
-                    case 'a': nave.moveLeft(); score--; break;
-                    case 'd': nave.moveRight(); score--; break;
+                    case 'w': nave.moveUp(); score--; ultimoMovimento = cmd; break;
+                    case 's': nave.moveDown(); score--; ultimoMovimento = cmd; break;
+                    case 'a': nave.moveLeft(); score--; ultimoMovimento = cmd; break;
+                    case 'd': nave.moveRight(); score--; ultimoMovimento = cmd; break;
                     case 'c': {
                         // Tenta embarcar um passageiro se houver um na posição atual
                         Passageiro p = missao.passagemNaPosicao();
@@ -127,8 +139,8 @@ public class Main {
                             // apenas se o embarque na nave for bem-sucedido
                             boolean ok = missao.embarcarPassageiroNaPosicao();
                             if (ok) {
-                                score += 10; // bônus por embarque
-                                System.out.println("Passageiro embarcado. +10 pontos!");
+                                score += p.getPontuacao(); // bônus por embarque
+                                System.out.println("Passageiro embarcado. "+p.getPontuacao()+" pontos!");
                             } else {
                                 System.out.println("Nave cheia, não foi possível embarcar.");
                             }
@@ -198,6 +210,37 @@ public class Main {
     }
 
     /**
+     * Lê do console o lado do mapa desejado pelo jogador.
+     * <p>
+     * O valor deve ser um número ímpar entre 5 e 21, para que exista uma
+     * linha/coluna central (coordenada 0) e a nave comece no centro. Entradas
+     * pares são arredondadas para o próximo ímpar; entradas inválidas ou fora
+     * do intervalo assumem o padrão 11.
+     *
+     * @param scanner leitor de entrada do console
+     * @return lado do mapa (número ímpar entre 5 e 21)
+     */
+    private static int lerDimensaoMapa(Scanner scanner) {
+        System.out.print("Informe a dimensão do mapa (lado ímpar, ex.: 11): ");
+        String entrada = scanner.nextLine().trim();
+        try {
+            int dimensao = Integer.parseInt(entrada);
+            if (dimensao < 5 || dimensao > 21) {
+                System.out.println("Valor fora do intervalo [5, 21]. Usando dimensão padrão 11.");
+                return 11;
+            }
+            if (dimensao % 2 == 0) {
+                dimensao++; // garante uma célula central (coordenada 0)
+                System.out.println("Dimensão par ajustada para " + dimensao + ".");
+            }
+            return dimensao;
+        } catch (NumberFormatException e) {
+            System.out.println("Entrada inválida. Usando dimensão padrão 11.");
+            return 11;
+        }
+    }
+
+    /**
      * Cria uma nova instância de `Missao` populando a nave, passageiros e
      * asteroides em posições aleatórias dentro dos limites especificados.
      *
@@ -209,11 +252,11 @@ public class Main {
      * @return nova `Missao` configurada
      */
     private static Missao criarNovaMissao(Random random, int minX, int maxX, int minY, int maxY) {
-        Nave nave = new Nave("A-1", 3);
+        Nave nave = new Nave("A-1", 4);
         Missao missao = new Missao(nave);
 
         // Cria 3 passageiros em posições aleatórias dentro dos limites
-        while (missao.getPassageiros().size() < 3) {
+        while (missao.getPassageiros().size() < 4) {
             // escolhe coordenadas aleatórias incluindo os limites
             int x = random.nextInt(maxX - minX + 1) + minX;
             int y = random.nextInt(maxY - minY + 1) + minY;
@@ -268,6 +311,26 @@ public class Main {
     }
 
     /**
+     * Reverte o último movimento feito pela nave para tirá-la da célula do
+     * asteroide após uma colisão.
+     *
+     * @param nave nave a reposicionar
+     * @param ultimoMovimento último comando de movimento executado
+     */
+    private static void desfazerUltimoMovimento(Nave nave, char ultimoMovimento) {
+        switch (ultimoMovimento) {
+            case 'w': nave.moveDown(); break;
+            case 's': nave.moveUp(); break;
+            case 'a': nave.moveRight(); break;
+            case 'd': nave.moveLeft(); break;
+            default:
+                nave.moveRight();
+                nave.moveDown();
+                break;
+        }
+    }
+
+    /**
      * Renderiza no console um mapa textual com a posição da nave, passageiros
      * e asteroides, além de legenda e resumo de comandos.
      *
@@ -281,7 +344,7 @@ public class Main {
      */
     private static void desenharMapa(Missao missao, int minX, int maxX, int minY, int maxY, int score, String pilotoNome) {
         System.out.println();
-        System.out.printf("Mapa da Missão (Pontos: %d) - Piloto: %s%n", score, pilotoNome);
+        System.out.printf("Mapa da Missão (Pontos: %d | Vidas: %d) - Piloto: %s%n", score, missao.getNave().getVidas(), pilotoNome);
         System.out.print("    ");
         // cabeçalho das colunas (coordenadas X)
         for (int x = minX; x <= maxX; x++) {
@@ -298,33 +361,33 @@ public class Main {
         for (int y = minY; y <= maxY; y++) {
             System.out.printf("%3d|", y);
             for (int x = minX; x <= maxX; x++) {
-                char symbol = '.';
+                String symbol = "░";
                 if (missao.getNave().getX() == x && missao.getNave().getY() == y) {
-                    symbol = 'N';
+                    symbol = "🚀";
                 } else {
                     // verifica passageiros primeiro (preferência de desenho)
                     for (Passageiro p : missao.getPassageiros()) {
                         if (p.getX() == x && p.getY() == y) {
                             // diferencia engenheiro de professor pelo símbolo
                             if (p instanceof Engenheiro) {
-                                symbol = 'E';
+                                symbol = "👨";
                             } else {
-                                symbol = 'P';
+                                symbol = "👨‍🏫";
                             }
                             break; // encontrou um passageiro nesta célula
                         }
                     }
                     // se não havia passageiro, verifica asteroides
-                    if (symbol == '.') {
+                    if (symbol == "░") {
                         for (Asteroide a : missao.getAsteroides()) {
                             if (a.getX() == x && a.getY() == y) {
-                                symbol = 'A';
+                                symbol = "💥";
                                 break;
                             }
                         }
                     }
                 }
-                System.out.printf(" %2c", symbol);
+                System.out.printf(" %2s", symbol);
             }
             System.out.println();
         }
