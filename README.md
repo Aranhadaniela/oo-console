@@ -11,6 +11,7 @@ https://github.com/Aranhadaniela/oo-console
 | Matricula | Participante |
 | --- | --- |
 | 2410902 | Daniela Aranha Goes |
+| 2417366 | Jonathas Dantas Limeira|
 
 ## Sobre o projeto
 
@@ -18,12 +19,20 @@ O jogo coloca o jogador no controle de uma nave em um mapa bidimensional. O obje
 
 ## Como executar
 
-Compile e rode o projeto a partir da raiz do repositório:
+Abra o terminal na raiz do projeto e execute os comandos abaixo:
+
+1. Compile os arquivos Java:
 
 ```bash
 javac -d out $(find src -name "*.java")
+```
+
+2. Execute o jogo:
+
+```bash
 java -cp out missao.Main
 ```
+
 
 ## Estrutura
 
