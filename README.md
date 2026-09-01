@@ -9,7 +9,7 @@ https://github.com/Aranhadaniela/oo-console
 ## Participante
 
 | Matricula | Participante | GitHub |
-| --- | --- |
+| --- | --- | --- |
 | 2410902 | Daniela Aranha Goes |Aranhadaniela |
 | 2417366 | Jonathas Dantas Limeira| jonathasdlimeira |
 
