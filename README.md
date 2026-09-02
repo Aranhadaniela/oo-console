@@ -26,13 +26,13 @@ Abra o terminal na raiz do projeto e execute os comandos abaixo:
 ```bash
 javac -d out $(find src -name "*.java")
 ```
-
+javac -d bin src/missao/*.java
 2. Execute o jogo:
 
 ```bash
 java -cp out missao.Main
 ```
-
+java -cp bin missao.Main
 
 ## Estrutura
 
